@@ -3,13 +3,13 @@
 import { motion } from "framer-motion";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { AssetAllocation } from "@/lib/types";
-import { assetAllocation } from "@/data/mock-data";
 
 const TARGET_ALLOCATION: Record<string, number> = {
   "日本株式": 35.0,
   "米国株式": 20.0,
   "グローバル株式": 30.0,
-  "現金": 15.0,
+  "暗号資産": 5.0,
+  "現金": 10.0,
 };
 
 function AllocationBar({ data }: { data: AssetAllocation[] }) {
@@ -141,8 +141,12 @@ function AllocationRow({ item, index, target }: AllocationRowProps) {
   );
 }
 
-export function AllocationChart() {
-  const totalValue = assetAllocation.reduce((sum, a) => sum + a.value, 0);
+interface AllocationChartProps {
+  data: AssetAllocation[];
+}
+
+export function AllocationChart({ data }: AllocationChartProps) {
+  const totalValue = data.reduce((sum, a) => sum + a.value, 0);
 
   return (
     <div className="space-y-5">
@@ -152,18 +156,18 @@ export function AllocationChart() {
           <span>実際の配分</span>
           <span className="font-mono">{formatCurrency(totalValue)}</span>
         </div>
-        <AllocationBar data={assetAllocation} />
+        <AllocationBar data={data} />
 
         <div className="flex items-center justify-between text-xs text-[#a1a1aa]">
           <span>目標配分</span>
           <span className="text-[#52525b]">参考値</span>
         </div>
-        <TargetComparisonBar data={assetAllocation} />
+        <TargetComparisonBar data={data} />
       </div>
 
       {/* Detail rows */}
       <div className="space-y-1">
-        {assetAllocation.map((item, index) => {
+        {data.map((item, index) => {
           const target = TARGET_ALLOCATION[item.category] ?? 0;
           return (
             <AllocationRow

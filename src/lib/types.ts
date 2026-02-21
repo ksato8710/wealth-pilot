@@ -3,7 +3,7 @@ export interface Holding {
   symbol: string;
   name: string;
   nameEn?: string;
-  market: "TSE" | "NYSE" | "NASDAQ" | "FUND";
+  market: "TSE" | "NYSE" | "NASDAQ" | "FUND" | "BINANCE" | "BITFLYER";
   sector: string;
   shares: number;
   avgCost: number;
@@ -18,7 +18,26 @@ export interface Holding {
   annualDividend: number;
   account: string;
   nisaType?: "growth" | "tsumitate" | null;
-  currency: "JPY" | "USD";
+  currency: "JPY" | "USD" | "CRYPTO";
+  source?: "manual" | "binance" | "bitflyer";
+  lastUpdated?: string;
+}
+
+export type DataSourceType = "manual" | "binance" | "bitflyer";
+
+export interface DataSource {
+  type: DataSourceType;
+  label: string;
+  connected: boolean;
+  lastSyncAt: string | null;
+  assetCount: number;
+  error?: string;
+}
+
+export interface ExchangeConfig {
+  exchange: "binance" | "bitflyer";
+  apiKey: string;
+  apiSecret: string;
 }
 
 export interface AssetAllocation {

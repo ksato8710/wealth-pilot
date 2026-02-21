@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sidebar, SIDEBAR_WIDTH } from "@/components/layout/sidebar";
+import { SyncStatus } from "@/components/layout/sync-status";
 
 /* -------------------------------------------------------------------------- */
 /*  Route → page title mapping                                                */
@@ -64,6 +65,9 @@ export function AppLayout({ children }: AppLayoutProps) {
 
           {/* Right side: actions */}
           <div className="flex items-center gap-3">
+            {/* Sync status */}
+            <SyncStatus />
+
             {/* Notification bell */}
             <button
               type="button"

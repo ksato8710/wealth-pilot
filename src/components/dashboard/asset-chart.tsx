@@ -11,7 +11,6 @@ import {
 } from "recharts";
 import { motion } from "framer-motion";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { assetHistory } from "@/data/mock-data";
 import { formatCurrency, formatCompactCurrency } from "@/lib/utils";
 import type { DailyAsset } from "@/lib/types";
 
@@ -91,12 +90,16 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   );
 }
 
-export default function AssetChart() {
+interface AssetChartProps {
+  data: DailyAsset[];
+}
+
+export default function AssetChart({ data }: AssetChartProps) {
   const [period, setPeriod] = useState<Period>("1Y");
 
   const filteredData = useMemo(
-    () => filterByPeriod(assetHistory, period),
-    [period]
+    () => filterByPeriod(data, period),
+    [data, period]
   );
 
   const yDomain = useMemo(() => {

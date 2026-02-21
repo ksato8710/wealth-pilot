@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { motion, type Variants } from "framer-motion";
 import {
   Shield,
@@ -14,7 +13,6 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { aiInsights } from "@/data/mock-data";
 import type { AIInsight } from "@/lib/types";
 import type { LucideIcon } from "lucide-react";
 
@@ -69,9 +67,11 @@ const itemVariants: Variants = {
   },
 };
 
-export default function AIInsights() {
-  const insights = useMemo(() => aiInsights, []);
+interface AIInsightsProps {
+  insights: AIInsight[];
+}
 
+export default function AIInsights({ insights }: AIInsightsProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}

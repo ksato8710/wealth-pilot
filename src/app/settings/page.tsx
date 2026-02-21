@@ -1,31 +1,175 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   User, CreditCard, Link2, Bell, Shield, LogOut,
-  Check, Plus, RefreshCw, ChevronRight,
+  Plus, ChevronRight,
 } from "lucide-react";
-
-const brokerAccounts = [
-  { id: "1", broker: "SBI証券", type: "特定口座 + NISA", connected: true, lastSync: "2026-02-21 15:30" },
-  { id: "2", broker: "楽天証券", type: "特定口座 + NISA", connected: true, lastSync: "2026-02-21 15:30" },
-];
-
-const availableBrokers = [
-  "マネックス証券", "松井証券", "三菱UFJ eスマート証券", "GMOクリック証券",
-  "野村證券", "SMBC日興証券", "大和証券",
-];
+import { useDataSources, useSync } from "@/hooks/use-data-sources";
+import { useHoldings } from "@/hooks/use-holdings";
+import { ExchangeConnectionCard } from "@/components/settings/exchange-connection-card";
+import { ManualStockList } from "@/components/settings/manual-stock-list";
+import { StockEntryDialog } from "@/components/settings/stock-entry-dialog";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("profile");
+  const [stockDialogOpen, setStockDialogOpen] = useState(false);
+  const [editingStock, setEditingStock] = useState<{
+    symbol: string;
+    name: string;
+    nameEn?: string;
+    market: string;
+    sector: string;
+    shares: number;
+    avgCost: number;
+    account: string;
+    nisaType?: string | null;
+    currency?: string;
+  } | null>(null);
+  const [editingStockId, setEditingStockId] = useState<string | null>(null);
+
+  const { data: sources, refetch: refetchSources } = useDataSources();
+  const { isSyncing, sync } = useSync();
+  const { data: holdingsData, refetch: refetchHoldings } = useHoldings();
+
+  // Derive exchange connection status from sources
+  const binanceSource = sources?.find(s => s.type === "binance");
+  const bitflyerSource = sources?.find(s => s.type === "bitflyer");
+
+  const binanceConnected = binanceSource?.connected ?? false;
+  const binanceLastSync = binanceSource?.lastSyncAt ?? null;
+  const binanceAssetCount = binanceSource?.assetCount ?? 0;
+
+  const bitflyerConnected = bitflyerSource?.connected ?? false;
+  const bitflyerLastSync = bitflyerSource?.lastSyncAt ?? null;
+  const bitflyerAssetCount = bitflyerSource?.assetCount ?? 0;
+
+  // Filter manual holdings (not from exchange sources)
+  const manualHoldings = (holdingsData ?? [])
+    .filter(h => h.source === "manual" || (h.market !== "BINANCE" && h.market !== "BITFLYER"))
+    .map(h => ({
+      id: h.id,
+      symbol: h.symbol,
+      name: h.name,
+      shares: h.shares,
+      avgCost: h.avgCost,
+      account: h.account,
+      nisaType: h.nisaType,
+    }));
+
+  const handleSaveApiKey = useCallback(
+    (exchange: "binance" | "bitflyer") =>
+      async (apiKey: string, apiSecret: string) => {
+        await fetch("/api/settings/api-keys", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ exchange, apiKey, apiSecret }),
+        });
+        await refetchSources();
+      },
+    [refetchSources]
+  );
+
+  const handleTestConnection = useCallback(
+    (exchange: "binance" | "bitflyer") =>
+      async (apiKey: string, apiSecret: string) => {
+        const res = await fetch("/api/settings/api-keys/test", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ exchange, apiKey, apiSecret }),
+        });
+        return res.json();
+      },
+    []
+  );
+
+  const handleSync = useCallback(async () => {
+    await sync();
+    await refetchSources();
+    await refetchHoldings();
+  }, [sync, refetchSources, refetchHoldings]);
+
+  const handleDisconnect = useCallback(
+    (exchange: "binance" | "bitflyer") => async () => {
+      await fetch("/api/settings/api-keys", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ exchange }),
+      });
+      await refetchSources();
+      await refetchHoldings();
+    },
+    [refetchSources, refetchHoldings]
+  );
+
+  const handleSaveStock = useCallback(
+    async (data: {
+      symbol: string;
+      name: string;
+      nameEn?: string;
+      market: string;
+      sector: string;
+      shares: number;
+      avgCost: number;
+      account: string;
+      nisaType?: string | null;
+      currency?: string;
+    }) => {
+      const method = editingStockId ? "PUT" : "POST";
+      const url = editingStockId
+        ? `/api/holdings/${editingStockId}`
+        : "/api/holdings";
+      await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      setEditingStock(null);
+      setEditingStockId(null);
+      await refetchHoldings();
+    },
+    [editingStockId, refetchHoldings]
+  );
+
+  const handleEditStock = useCallback(
+    (id: string) => {
+      const holding = holdingsData?.find(h => h.id === id);
+      if (!holding) return;
+      setEditingStockId(id);
+      setEditingStock({
+        symbol: holding.symbol,
+        name: holding.name,
+        nameEn: holding.nameEn,
+        market: holding.market,
+        sector: holding.sector,
+        shares: holding.shares,
+        avgCost: holding.avgCost,
+        account: holding.account,
+        nisaType: holding.nisaType,
+        currency: holding.currency,
+      });
+      setStockDialogOpen(true);
+    },
+    [holdingsData]
+  );
+
+  const handleDeleteStock = useCallback(
+    async (id: string) => {
+      const confirmed = window.confirm("この銘柄を削除しますか？");
+      if (!confirmed) return;
+      await fetch(`/api/holdings/${id}`, { method: "DELETE" });
+      await refetchHoldings();
+    },
+    [refetchHoldings]
+  );
 
   const tabs = [
     { id: "profile", label: "プロフィール", icon: User },
-    { id: "accounts", label: "口座連携", icon: Link2 },
+    { id: "accounts", label: "データ連携", icon: Link2 },
     { id: "subscription", label: "プラン", icon: CreditCard },
     { id: "notifications", label: "通知設定", icon: Bell },
     { id: "security", label: "セキュリティ", icon: Shield },
@@ -98,66 +242,65 @@ export default function SettingsPage() {
           )}
 
           {activeTab === "accounts" && (
-            <>
-              <Card>
-                <CardHeader>
-                  <CardTitle>連携済み口座</CardTitle>
-                  <CardDescription>証券口座の接続状態を管理します</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {brokerAccounts.map((account) => (
-                    <div
-                      key={account.id}
-                      className="flex items-center justify-between p-4 rounded-lg border border-[#27272a] bg-[#09090b]"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-[#6366f1]/10 flex items-center justify-center">
-                          <Link2 className="w-5 h-5 text-[#818cf8]" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm">{account.broker}</p>
-                          <p className="text-xs text-[#a1a1aa]">{account.type}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-right">
-                          <Badge variant="profit">
-                            <Check className="w-3 h-3 mr-1" />
-                            接続済み
-                          </Badge>
-                          <p className="text-xs text-[#a1a1aa] mt-1">
-                            最終同期: {account.lastSync}
-                          </p>
-                        </div>
-                        <Button variant="ghost" size="icon">
-                          <RefreshCw className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+            <div className="space-y-6">
+              {/* Exchange Connections */}
+              <div>
+                <h3 className="text-sm font-medium text-[#a1a1aa] mb-3">暗号資産取引所</h3>
+                <div className="space-y-4">
+                  <ExchangeConnectionCard
+                    exchange="binance"
+                    label="Binance"
+                    iconColor="#F0B90B"
+                    connected={binanceConnected}
+                    lastSyncAt={binanceLastSync}
+                    assetCount={binanceAssetCount}
+                    onSave={handleSaveApiKey("binance")}
+                    onTest={handleTestConnection("binance")}
+                    onSync={handleSync}
+                    onDisconnect={handleDisconnect("binance")}
+                  />
+                  <ExchangeConnectionCard
+                    exchange="bitflyer"
+                    label="bitFlyer"
+                    iconColor="#1DA2B4"
+                    connected={bitflyerConnected}
+                    lastSyncAt={bitflyerLastSync}
+                    assetCount={bitflyerAssetCount}
+                    onSave={handleSaveApiKey("bitflyer")}
+                    onTest={handleTestConnection("bitflyer")}
+                    onSync={handleSync}
+                    onDisconnect={handleDisconnect("bitflyer")}
+                  />
+                </div>
+              </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>口座を追加</CardTitle>
-                  <CardDescription>対応証券会社から口座を連携できます</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {availableBrokers.map((broker) => (
-                      <button
-                        key={broker}
-                        className="flex items-center justify-between p-3 rounded-lg border border-[#27272a] hover:border-[#6366f1]/50 hover:bg-[#6366f1]/5 transition-all text-left"
-                      >
-                        <span className="text-sm">{broker}</span>
-                        <Plus className="w-4 h-4 text-[#a1a1aa]" />
-                      </button>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </>
+              {/* Manual Stocks */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-medium text-[#a1a1aa]">手動登録銘柄</h3>
+                  <Button size="sm" onClick={() => {
+                    setEditingStock(null);
+                    setEditingStockId(null);
+                    setStockDialogOpen(true);
+                  }}>
+                    <Plus className="w-4 h-4 mr-1" />
+                    銘柄追加
+                  </Button>
+                </div>
+                <ManualStockList
+                  holdings={manualHoldings}
+                  onEdit={handleEditStock}
+                  onDelete={handleDeleteStock}
+                />
+              </div>
+
+              <StockEntryDialog
+                open={stockDialogOpen}
+                onOpenChange={setStockDialogOpen}
+                onSave={handleSaveStock}
+                editData={editingStock}
+              />
+            </div>
           )}
 
           {activeTab === "subscription" && (

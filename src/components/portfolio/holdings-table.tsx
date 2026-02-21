@@ -10,14 +10,15 @@ import {
   TrendingUp,
   TrendingDown,
 } from "lucide-react";
-import { cn, formatCurrency, formatPercent, formatNumber } from "@/lib/utils";
+import { cn, formatCurrency, formatPercent, formatNumber, formatQuantity } from "@/lib/utils";
 import type { Holding } from "@/lib/types";
-import { holdings } from "@/data/mock-data";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 
 type SortKey = keyof Holding;
 type SortDirection = "asc" | "desc";
+
+type AssetTypeFilter = "all" | "stock" | "crypto";
 
 interface ColumnDef {
   key: SortKey;
@@ -40,6 +41,9 @@ const columns: ColumnDef[] = [
   { key: "account", label: "口座", align: "center", sortable: true, minWidth: "min-w-[100px]" },
   { key: "nisaType", label: "NISA", align: "center", sortable: true, minWidth: "min-w-[90px]" },
 ];
+
+const STOCK_MARKETS: Holding["market"][] = ["TSE", "NYSE", "NASDAQ", "FUND"];
+const CRYPTO_MARKETS: Holding["market"][] = ["BINANCE", "BITFLYER"];
 
 function SortIcon({ column, sortKey, sortDirection }: {
   column: SortKey;
@@ -65,10 +69,39 @@ function NisaBadge({ nisaType }: { nisaType: Holding["nisaType"] }) {
   return <Badge variant={variant}>{label}</Badge>;
 }
 
-export function HoldingsTable() {
+function MarketBadge({ market }: { market: Holding["market"] }) {
+  if (market === "BINANCE") {
+    return <Badge variant="crypto">Binance</Badge>;
+  }
+  if (market === "BITFLYER") {
+    return <Badge className="bg-[#1DA2B4]/10 text-[#1DA2B4]">bitFlyer</Badge>;
+  }
+  return <Badge variant="outline">{market}</Badge>;
+}
+
+function SourceBadge({ source }: { source?: Holding["source"] }) {
+  if (source === "binance") {
+    return <Badge variant="crypto" className="ml-1.5 text-[10px] px-1.5 py-0">Binance</Badge>;
+  }
+  if (source === "bitflyer") {
+    return <Badge className="ml-1.5 text-[10px] px-1.5 py-0 bg-[#1DA2B4]/10 text-[#1DA2B4]">bitFlyer</Badge>;
+  }
+  return null;
+}
+
+function isCryptoMarket(market: Holding["market"]): boolean {
+  return CRYPTO_MARKETS.includes(market);
+}
+
+interface HoldingsTableProps {
+  holdings: Holding[];
+}
+
+export function HoldingsTable({ holdings }: HoldingsTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey | null>("marketValue");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [assetTypeFilter, setAssetTypeFilter] = useState<AssetTypeFilter>("all");
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -83,6 +116,15 @@ export function HoldingsTable() {
     const query = searchQuery.toLowerCase().trim();
 
     let result = holdings.filter((h) => {
+      // Asset type filter
+      if (assetTypeFilter === "stock" && !STOCK_MARKETS.includes(h.market)) {
+        return false;
+      }
+      if (assetTypeFilter === "crypto" && !CRYPTO_MARKETS.includes(h.market)) {
+        return false;
+      }
+
+      // Search filter
       if (!query) return true;
       return (
         h.symbol.toLowerCase().includes(query) ||
@@ -112,18 +154,55 @@ export function HoldingsTable() {
     }
 
     return result;
-  }, [searchQuery, sortKey, sortDirection]);
+  }, [holdings, searchQuery, sortKey, sortDirection, assetTypeFilter]);
 
   return (
     <div className="space-y-4">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#52525b]" />
-        <Input
-          placeholder="銘柄名またはシンボルで検索..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
-        />
+      <div className="flex items-center gap-3">
+        <div className="inline-flex rounded-lg border border-[#27272a] bg-[#09090b] p-0.5">
+          <button
+            onClick={() => setAssetTypeFilter("all")}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+              assetTypeFilter === "all"
+                ? "bg-[#27272a] text-white"
+                : "text-[#a1a1aa] hover:text-white"
+            )}
+          >
+            すべて
+          </button>
+          <button
+            onClick={() => setAssetTypeFilter("stock")}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+              assetTypeFilter === "stock"
+                ? "bg-[#27272a] text-white"
+                : "text-[#a1a1aa] hover:text-white"
+            )}
+          >
+            株式
+          </button>
+          <button
+            onClick={() => setAssetTypeFilter("crypto")}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+              assetTypeFilter === "crypto"
+                ? "bg-[#27272a] text-white"
+                : "text-[#a1a1aa] hover:text-white"
+            )}
+          >
+            暗号資産
+          </button>
+        </div>
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#52525b]" />
+          <Input
+            placeholder="銘柄名またはシンボルで検索..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-[#27272a]">
@@ -160,6 +239,7 @@ export function HoldingsTable() {
               {filteredAndSorted.map((holding, index) => {
                 const isProfit = holding.unrealizedPL >= 0;
                 const isDayPositive = holding.dayChange >= 0;
+                const isCrypto = isCryptoMarket(holding.market);
 
                 return (
                   <motion.tr
@@ -171,7 +251,8 @@ export function HoldingsTable() {
                     transition={{ duration: 0.15, delay: index * 0.02 }}
                     className={cn(
                       "border-b border-[#27272a] transition-colors hover:bg-[#27272a]/50",
-                      index % 2 === 0 ? "bg-[#18181b]" : "bg-[#18181b]/60"
+                      index % 2 === 0 ? "bg-[#18181b]" : "bg-[#18181b]/60",
+                      isCrypto && "border-l-2 border-[#F0B90B]/40"
                     )}
                   >
                     {/* Symbol / Name */}
@@ -182,18 +263,21 @@ export function HoldingsTable() {
                         </span>
                         <span className="text-xs text-[#a1a1aa]">
                           {holding.name}
+                          <SourceBadge source={holding.source} />
                         </span>
                       </div>
                     </td>
 
                     {/* Market */}
                     <td className="whitespace-nowrap px-4 py-3 text-center">
-                      <Badge variant="outline">{holding.market}</Badge>
+                      <MarketBadge market={holding.market} />
                     </td>
 
                     {/* Shares */}
                     <td className="whitespace-nowrap px-4 py-3 text-right font-mono text-[#e4e4e7]">
-                      {formatNumber(holding.shares)}
+                      {holding.currency === "CRYPTO"
+                        ? formatQuantity(holding.shares, "crypto", holding.symbol)
+                        : formatNumber(holding.shares)}
                     </td>
 
                     {/* Avg Cost */}
@@ -271,7 +355,11 @@ export function HoldingsTable() {
 
                     {/* NISA */}
                     <td className="whitespace-nowrap px-4 py-3 text-center">
-                      <NisaBadge nisaType={holding.nisaType} />
+                      {isCrypto ? (
+                        <span className="text-xs text-[#52525b]">対象外</span>
+                      ) : (
+                        <NisaBadge nisaType={holding.nisaType} />
+                      )}
                     </td>
                   </motion.tr>
                 );

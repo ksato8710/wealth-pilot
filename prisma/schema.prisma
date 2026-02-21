@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  apiKeys        ApiKey[]
+  manualHoldings ManualHolding[]
+  assetSnapshots AssetSnapshot[]
+  dividendRecords DividendRecord[]
+  nisaStatus     NisaStatus?
+  taxRecords     TaxRecord[]
+}
+
+model ApiKey {
+  id            String   @id @default(cuid())
+  userId        String
+  exchange      String   // "binance" | "bitflyer"
+  apiKeyEnc     String   // AES-256-GCM encrypted
+  apiSecretEnc  String   // AES-256-GCM encrypted
+  iv            String   // initialization vector
+  authTag       String   // GCM auth tag
+  ivSecret      String   // iv for secret
+  authTagSecret String   // auth tag for secret
+  lastSyncAt    DateTime?
+  assetCount    Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, exchange])
+}
+
+model ManualHolding {
+  id        String   @id @default(cuid())
+  userId    String
+  symbol    String
+  name      String
+  nameEn    String?
+  market    String   // "TSE" | "NYSE" | "NASDAQ" | "FUND"
+  sector    String
+  shares    Float
+  avgCost   Float
+  account   String
+  nisaType  String?  // "growth" | "tsumitate" | null
+  currency  String   @default("JPY")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PriceCache {
+  id        String   @id @default(cuid())
+  symbol    String   @unique
+  price     Float
+  prevClose Float?
+  currency  String   @default("JPY")
+  updatedAt DateTime @updatedAt
+}
+
+model AssetSnapshot {
+  id         String   @id @default(cuid())
+  userId     String
+  date       String   // YYYY-MM-DD
+  totalAsset Float
+  invested   Float
+  cash       Float
+  profit     Float
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+}
+
+model DividendRecord {
+  id          String   @id @default(cuid())
+  userId      String
+  symbol      String
+  name        String
+  amount      Float
+  paymentDate String
+  exDate      String
+  type        String   // "actual" | "forecast"
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model NisaStatus {
+  id             String @id @default(cuid())
+  userId         String @unique
+  growthUsed     Float  @default(0)
+  growthLimit    Float  @default(2400000)
+  tsumitateUsed  Float  @default(0)
+  tsumitateLimit Float  @default(1200000)
+  lifetimeUsed   Float  @default(0)
+  lifetimeLimit  Float  @default(18000000)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TaxRecord {
+  id             String   @id @default(cuid())
+  userId         String
+  year           Int
+  realizedProfit Float    @default(0)
+  realizedLoss   Float    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, year])
+}

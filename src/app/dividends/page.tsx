@@ -26,7 +26,12 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
-import { monthlyDividends, dividendRecords, holdings } from "@/data/mock-data";
+import { monthlyDividends as mockMonthlyDividends, dividendRecords as mockDividendRecords, holdings as mockHoldings } from "@/data/mock-data";
+import { useDividends } from "@/hooks/use-dividends";
+import { useHoldings } from "@/hooks/use-holdings";
+import { StatCardSkeleton } from "@/components/skeletons/stat-card-skeleton";
+import { ChartSkeleton } from "@/components/skeletons/chart-skeleton";
+import { ErrorState } from "@/components/ui/error-state";
 
 const monthLabels = [
   "1月", "2月", "3月", "4月", "5月", "6月",
@@ -74,6 +79,16 @@ function CustomTooltip({
 export default function DividendsPage() {
   const [selectedYear, setSelectedYear] = useState<2025 | 2026>(2026);
 
+  const { data: dividendData, isLoading: isDividendsLoading, error: dividendsError, refetch: refetchDividends } = useDividends();
+  const { data: holdingsData, isLoading: isHoldingsLoading, error: holdingsError, refetch: refetchHoldings } = useHoldings();
+
+  const monthlyDividends = dividendData?.monthly ?? mockMonthlyDividends;
+  const dividendRecords = dividendData?.records ?? mockDividendRecords;
+  const holdings = holdingsData ?? mockHoldings;
+
+  const isLoading = isDividendsLoading || isHoldingsLoading;
+  const error = dividendsError || holdingsError;
+
   const yearData = useMemo(() => {
     const prefix = `${selectedYear}-`;
     return monthlyDividends
@@ -83,14 +98,14 @@ export default function DividendsPage() {
         actual: d.amount,
         forecast: d.forecast,
       }));
-  }, [selectedYear]);
+  }, [selectedYear, monthlyDividends]);
 
   const totalDividendsThisYear = useMemo(() => {
     const prefix = `${selectedYear}-`;
     return monthlyDividends
       .filter((d) => d.month.startsWith(prefix))
       .reduce((sum, d) => sum + d.amount + (d.forecast > d.amount ? d.forecast - d.amount : 0), 0);
-  }, [selectedYear]);
+  }, [selectedYear, monthlyDividends]);
 
   const monthlyAverage = useMemo(() => {
     return Math.round(totalDividendsThisYear / 12);
@@ -100,21 +115,56 @@ export default function DividendsPage() {
     const totalMarketValue = holdings.reduce((sum, h) => sum + h.marketValue, 0);
     const totalAnnualDividend = holdings.reduce((sum, h) => sum + h.annualDividend, 0);
     return totalMarketValue > 0 ? (totalAnnualDividend / totalMarketValue) * 100 : 0;
-  }, []);
+  }, [holdings]);
 
   const upcomingDividends = useMemo(() => {
     return dividendRecords
       .filter((d) => d.type === "forecast")
       .sort((a, b) => new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime());
-  }, []);
+  }, [dividendRecords]);
 
   const pastDividends = useMemo(() => {
     return dividendRecords
       .filter((d) => d.type === "actual")
       .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
-  }, []);
+  }, [dividendRecords]);
 
   const nextPayment = upcomingDividends[0];
+
+  // Error state
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <ErrorState
+          message="配当データの取得に失敗しました"
+          onRetry={() => {
+            refetchDividends();
+            refetchHoldings();
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <StatCardSkeleton key={i} />
+            ))}
+          </div>
+          <ChartSkeleton />
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <ChartSkeleton />
+            <ChartSkeleton />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const summaryCards = [
     {

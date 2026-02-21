@@ -16,10 +16,10 @@ import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils";
 import {
   aiChatSuggestions,
-  holdings,
-  monthlyDividends,
-  taxSimulation,
-  nisaStatus,
+  holdings as mockHoldings,
+  monthlyDividends as mockMonthlyDividends,
+  taxSimulation as mockTaxSimulation,
+  nisaStatus as mockNisaStatus,
 } from "@/data/mock-data";
 import type { ChatMessage } from "@/lib/types";
 
@@ -32,16 +32,16 @@ const WELCOME_MESSAGE: ChatMessage = {
 };
 
 function generateResponse(message: string): string {
-  const totalAsset = holdings.reduce((s, h) => s + h.marketValue, 0);
-  const totalUnrealized = holdings.reduce((s, h) => s + h.unrealizedPL, 0);
-  const totalAnnualDiv = holdings.reduce((s, h) => s + h.annualDividend, 0);
+  const totalAsset = mockHoldings.reduce((s, h) => s + h.marketValue, 0);
+  const totalUnrealized = mockHoldings.reduce((s, h) => s + h.unrealizedPL, 0);
+  const totalAnnualDiv = mockHoldings.reduce((s, h) => s + h.annualDividend, 0);
 
   if (message.includes("配当")) {
-    const currentMonthDiv = monthlyDividends.find(
+    const currentMonthDiv = mockMonthlyDividends.find(
       (d) => d.month === "2026-02"
     );
-    const nextMonthDiv = monthlyDividends.find((d) => d.month === "2026-03");
-    const yearTotal = monthlyDividends
+    const nextMonthDiv = mockMonthlyDividends.find((d) => d.month === "2026-03");
+    const yearTotal = mockMonthlyDividends
       .filter((d) => d.month.startsWith("2026"))
       .reduce((s, d) => s + d.amount + d.forecast, 0);
     return `配当金分析をお伝えします。
@@ -53,7 +53,7 @@ function generateResponse(message: string): string {
 - 年間配当利回り: ${((totalAnnualDiv / totalAsset) * 100).toFixed(2)}%
 
 **高配当銘柄トップ3**
-${holdings
+${mockHoldings
   .filter((h) => h.dividendYield > 0)
   .sort((a, b) => b.dividendYield - a.dividendYield)
   .slice(0, 3)
@@ -68,7 +68,7 @@ ${holdings
 
   if (message.includes("リスク") || message.includes("分析")) {
     const sectors = new Map<string, number>();
-    holdings.forEach((h) => {
+    mockHoldings.forEach((h) => {
       sectors.set(h.sector, (sectors.get(h.sector) || 0) + h.marketValue);
     });
     const topSectors = [...sectors.entries()]
@@ -80,7 +80,7 @@ ${holdings
 **資産概要**
 - 総資産: ${formatCurrency(totalAsset)}
 - 含み損益: ${formatCurrency(totalUnrealized)} (${totalUnrealized >= 0 ? "+" : ""}${((totalUnrealized / (totalAsset - totalUnrealized)) * 100).toFixed(1)}%)
-- 銘柄数: ${holdings.length}銘柄
+- 銘柄数: ${mockHoldings.length}銘柄
 
 **セクター集中度 (上位3)**
 ${topSectors.map(([sector, value]) => `- ${sector}: ${formatCurrency(value)} (${((value / totalAsset) * 100).toFixed(1)}%)`).join("\n")}
@@ -97,32 +97,32 @@ ${topSectors.map(([sector, value]) => `- ${sector}: ${formatCurrency(value)} (${
     return `税金最適化のアドバイスです。
 
 **今年度の税金状況**
-- 実現利益: ${formatCurrency(taxSimulation.realizedProfit)}
-- 実現損失: ${formatCurrency(Math.abs(taxSimulation.realizedLoss))}
-- 純利益: ${formatCurrency(taxSimulation.netProfit)}
-- 推定税額: ${formatCurrency(taxSimulation.estimatedTax)}（税率 ${taxSimulation.taxRate}%）
+- 実現利益: ${formatCurrency(mockTaxSimulation.realizedProfit)}
+- 実現損失: ${formatCurrency(Math.abs(mockTaxSimulation.realizedLoss))}
+- 純利益: ${formatCurrency(mockTaxSimulation.netProfit)}
+- 推定税額: ${formatCurrency(mockTaxSimulation.estimatedTax)}（税率 ${mockTaxSimulation.taxRate}%）
 
 **節税戦略の提案**
 1. **損出し（タックスロスハーベスティング）**: NTT株の含み損${formatCurrency(30000)}を確定させることで、約${formatCurrency(6095)}の節税が可能です。
 2. **NISA枠の活用**: JTを特定口座からNISA口座へ移管することで、年間配当${formatCurrency(38250)}が非課税になります（年間約${formatCurrency(7770)}の節税）。
 3. **利益確定タイミングの調整**: 三菱商事の利益確定を来年に延期し、NISA枠を活用する戦略で約${formatCurrency(15441)}の節税が見込めます。
 
-合計で最大 ${formatCurrency(taxSimulation.recommendations.reduce((s, r) => s + r.estimatedSaving, 0))} の節税が可能です。詳しくは「税金最適化」ページをご確認ください。`;
+合計で最大 ${formatCurrency(mockTaxSimulation.recommendations.reduce((s, r) => s + r.estimatedSaving, 0))} の節税が可能です。詳しくは「税金最適化」ページをご確認ください。`;
   }
 
   if (message.includes("NISA")) {
-    const growthRemaining = nisaStatus.growthLimit - nisaStatus.growthUsed;
+    const growthRemaining = mockNisaStatus.growthLimit - mockNisaStatus.growthUsed;
     const tsumitateRemaining =
-      nisaStatus.tsumitateLimit - nisaStatus.tsumitateUsed;
+      mockNisaStatus.tsumitateLimit - mockNisaStatus.tsumitateUsed;
     const lifetimeRemaining =
-      nisaStatus.lifetimeLimit - nisaStatus.lifetimeUsed;
+      mockNisaStatus.lifetimeLimit - mockNisaStatus.lifetimeUsed;
 
     return `NISA枠の最適活用についてアドバイスします。
 
 **現在のNISA利用状況**
-- 成長投資枠: ${formatCurrency(nisaStatus.growthUsed)} / ${formatCurrency(nisaStatus.growthLimit)}（残り ${formatCurrency(growthRemaining)}）
-- つみたて投資枠: ${formatCurrency(nisaStatus.tsumitateUsed)} / ${formatCurrency(nisaStatus.tsumitateLimit)}（残り ${formatCurrency(tsumitateRemaining)}）
-- 生涯投資枠: ${formatCurrency(nisaStatus.lifetimeUsed)} / ${formatCurrency(nisaStatus.lifetimeLimit)}（残り ${formatCurrency(lifetimeRemaining)}）
+- 成長投資枠: ${formatCurrency(mockNisaStatus.growthUsed)} / ${formatCurrency(mockNisaStatus.growthLimit)}（残り ${formatCurrency(growthRemaining)}）
+- つみたて投資枠: ${formatCurrency(mockNisaStatus.tsumitateUsed)} / ${formatCurrency(mockNisaStatus.tsumitateLimit)}（残り ${formatCurrency(tsumitateRemaining)}）
+- 生涯投資枠: ${formatCurrency(mockNisaStatus.lifetimeUsed)} / ${formatCurrency(mockNisaStatus.lifetimeLimit)}（残り ${formatCurrency(lifetimeRemaining)}）
 
 **最適化提案**
 1. **成長投資枠 (残り${formatCurrency(growthRemaining)})**: 高配当銘柄のJT（日本たばこ産業）を特定口座からNISA口座に移管することをお勧めします。年間配当${formatCurrency(38250)}が非課税になります。
@@ -137,11 +137,11 @@ ${topSectors.map(([sector, value]) => `- ${sector}: ${formatCurrency(value)} (${
 **資産サマリー**
 - 総資産評価額: ${formatCurrency(totalAsset)}
 - 含み損益: ${formatCurrency(totalUnrealized)}（${totalUnrealized >= 0 ? "+" : ""}${((totalUnrealized / (totalAsset - totalUnrealized)) * 100).toFixed(1)}%）
-- 保有銘柄数: ${holdings.length}銘柄
+- 保有銘柄数: ${mockHoldings.length}銘柄
 - 年間予想配当: ${formatCurrency(totalAnnualDiv)}
 
 **パフォーマンスハイライト**
-- 最も好調: ${holdings.sort((a, b) => b.unrealizedPLPercent - a.unrealizedPLPercent)[0].name}（${holdings.sort((a, b) => b.unrealizedPLPercent - a.unrealizedPLPercent)[0].unrealizedPLPercent > 0 ? "+" : ""}${holdings.sort((a, b) => b.unrealizedPLPercent - a.unrealizedPLPercent)[0].unrealizedPLPercent.toFixed(1)}%）
+- 最も好調: ${mockHoldings.sort((a, b) => b.unrealizedPLPercent - a.unrealizedPLPercent)[0].name}（${mockHoldings.sort((a, b) => b.unrealizedPLPercent - a.unrealizedPLPercent)[0].unrealizedPLPercent > 0 ? "+" : ""}${mockHoldings.sort((a, b) => b.unrealizedPLPercent - a.unrealizedPLPercent)[0].unrealizedPLPercent.toFixed(1)}%）
 - 要注目: NTT（-8.8%） - 損出し検討の余地あり
 
 何か特定のトピックについて詳しく知りたい場合は、お気軽にお聞きください。例えば「配当金の分析」「リスク分析」「税金最適化」「NISA活用」など対応できます。`;

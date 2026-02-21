@@ -3,8 +3,8 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { holdings } from "@/data/mock-data";
 import { formatPercent } from "@/lib/utils";
+import type { Holding } from "@/lib/types";
 
 interface HeatmapCell {
   symbol: string;
@@ -28,7 +28,11 @@ function getTextColor(percent: number): string {
   return "text-[#d4d4d8]";
 }
 
-export default function PortfolioHeatmap() {
+interface PortfolioHeatmapProps {
+  holdings: Holding[];
+}
+
+export default function PortfolioHeatmap({ holdings }: PortfolioHeatmapProps) {
   const cells: HeatmapCell[] = useMemo(() => {
     const totalValue = holdings.reduce((sum, h) => sum + h.marketValue, 0);
 
@@ -41,7 +45,7 @@ export default function PortfolioHeatmap() {
         proportion: totalValue > 0 ? h.marketValue / totalValue : 0,
       }))
       .sort((a, b) => b.marketValue - a.marketValue);
-  }, []);
+  }, [holdings]);
 
   return (
     <motion.div

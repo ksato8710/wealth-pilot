@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { formatCurrency } from "@/lib/utils";
-import { taxSimulation, nisaStatus } from "@/data/mock-data";
+import { taxSimulation as mockTaxSimulation, nisaStatus as mockNisaStatus } from "@/data/mock-data";
 import type { TaxRecommendation } from "@/lib/types";
 
 const typeIcons: Record<TaxRecommendation["type"], typeof TrendingDown> = {
@@ -48,6 +48,9 @@ const fadeInUp = {
 
 export default function TaxOptimizerPage() {
   const [simulatingId, setSimulatingId] = useState<string | null>(null);
+
+  const taxSimulation = mockTaxSimulation;
+  const nisaStatus = mockNisaStatus;
 
   const profitBarWidth =
     (taxSimulation.realizedProfit /

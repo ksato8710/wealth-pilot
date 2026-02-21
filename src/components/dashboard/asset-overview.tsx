@@ -9,14 +9,15 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  holdings,
-  getTotalAsset,
-  getTotalUnrealizedPL,
-  getTotalDayChange,
-  nisaStatus,
-} from "@/data/mock-data";
 import { formatCurrency, formatPercent } from "@/lib/utils";
+
+interface AssetOverviewProps {
+  totalAsset: number;
+  unrealizedPL: number;
+  dayChange: number;
+  annualDividend: number;
+  nisaStatus: { growthUsed: number; growthLimit: number; tsumitateUsed: number; tsumitateLimit: number };
+}
 
 const containerVariants: Variants = {
   hidden: {},
@@ -36,25 +37,17 @@ const itemVariants: Variants = {
   },
 };
 
-export default function AssetOverview() {
-  const totalAsset = useMemo(() => getTotalAsset(), []);
-  const unrealizedPL = useMemo(() => getTotalUnrealizedPL(), []);
-  const dayChange = useMemo(() => getTotalDayChange(), []);
-
+export default function AssetOverview({ totalAsset, unrealizedPL, dayChange, annualDividend, nisaStatus }: AssetOverviewProps) {
   const dayChangePercent = useMemo(() => {
     const previousTotal = totalAsset - dayChange;
     return previousTotal !== 0 ? (dayChange / previousTotal) * 100 : 0;
   }, [totalAsset, dayChange]);
 
-  const annualDividend = useMemo(
-    () => holdings.reduce((sum, h) => sum + h.annualDividend, 0),
-    []
-  );
-
   const dividendYield = useMemo(() => {
-    const totalMarketValue = holdings.reduce((sum, h) => sum + h.marketValue, 0);
-    return totalMarketValue > 0 ? (annualDividend / totalMarketValue) * 100 : 0;
-  }, [annualDividend]);
+    const totalMarketValue = totalAsset - (totalAsset - unrealizedPL - annualDividend + annualDividend);
+    // Use totalAsset as a proxy since holdings are no longer available here
+    return totalAsset > 0 ? (annualDividend / totalAsset) * 100 : 0;
+  }, [annualDividend, totalAsset]);
 
   const unrealizedPLPercent = useMemo(() => {
     const totalInvested = totalAsset - unrealizedPL;

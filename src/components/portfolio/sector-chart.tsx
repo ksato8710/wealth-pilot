@@ -11,7 +11,6 @@ import {
 } from "recharts";
 import { cn, formatCurrency, formatPercent } from "@/lib/utils";
 import type { SectorAllocation } from "@/lib/types";
-import { sectorAllocations } from "@/data/mock-data";
 
 const SECTOR_COLORS = [
   "#6366f1",
@@ -21,8 +20,20 @@ const SECTOR_COLORS = [
   "#f59e0b",
   "#ef4444",
   "#3b82f6",
+  "#F0B90B",
   "#475569",
 ];
+
+function isCryptoSector(sectorName: string): boolean {
+  return sectorName.includes("暗号") || sectorName.includes("仮想通貨");
+}
+
+function getSectorColor(sector: string, index: number): string {
+  if (isCryptoSector(sector)) {
+    return "#F0B90B";
+  }
+  return SECTOR_COLORS[index % SECTOR_COLORS.length];
+}
 
 interface CustomTooltipProps {
   active?: boolean;
@@ -97,14 +108,18 @@ function CenterLabel({ cx, cy, totalValue }: CenterLabelProps) {
   );
 }
 
-export function SectorChart() {
+interface SectorChartProps {
+  data: SectorAllocation[];
+}
+
+export function SectorChart({ data }: SectorChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
-  const totalValue = sectorAllocations.reduce((sum, s) => sum + s.value, 0);
+  const totalValue = data.reduce((sum, s) => sum + s.value, 0);
 
-  const chartData = sectorAllocations.map((sector, i) => ({
+  const chartData = data.map((sector, i) => ({
     ...sector,
-    color: SECTOR_COLORS[i % SECTOR_COLORS.length],
+    color: getSectorColor(sector.sector, i),
   }));
 
   const onPieEnter = useCallback((_: unknown, index: number) => {
